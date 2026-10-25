@@ -18,7 +18,7 @@ function teamPool(sport){
 }
 
 /* ---------- state ---------- */
-const newLeg = type => ({ type, player:"", team:"", pick:"", odds:null, result:"pending" });
+const newLeg = type => ({ type, player:"", team:"", teamId:"", espnId:"", pick:"", odds:null, result:"pending" });
 const state = { bets: [], unit: 10, review: null, filter: "all", editing: null, market: "Spread", conf: 3, live: false,
   legs: [newLeg("Spread")], oddsTouched: false, priceSrc: null, noteOpen: null, noteDraft: null, manual: {} };
 let coll = null, sample = null, delArm = null;
@@ -51,7 +51,7 @@ function normalize(v){
     b.legs = [{ type: b.market==="Parlay" ? "Other" : b.market, pick: b.pick||"", odds:null, result: b.result }];
     if(b.market==="Parlay" && n>1) b.legCount = n;
   }
-  b.legs = b.legs.map(l => ({ player:"", team:"", pick:"", odds:null, result:"pending", ...l }));
+  b.legs = b.legs.map(l => ({ player:"", team:"", teamId:"", espnId:"", pick:"", odds:null, result:"pending", ...l }));
   b.odds = b.odds ?? null; b.payout = b.payout ?? null; b.log = Array.isArray(b.log) ? b.log : [];
   return b;
 }
@@ -87,7 +87,8 @@ function allWatch(){
 }
 function warningsFor(leg, excludeId){
   if(!leg.player || norm(leg.player).length < 3) return [];
-  return allWatch().filter(w => w.betId !== excludeId && norm(w.player) === norm(leg.player) && (!w.team || !leg.team || norm(w.team) === norm(leg.team)))
+  const same = w => (w.espnId && leg.espnId) ? w.espnId === leg.espnId : norm(w.player) === norm(leg.player) && (!w.team || !leg.team || norm(w.team) === norm(leg.team));
+  return allWatch().filter(w => w.betId !== excludeId && same(w))
     .map(w => ({ ...w, sameStat: statMatch(w.stat, leg.pick) }));
 }
 const warnHTML = ws => ws.length ? `<div class="warnbox" role="note">${ws.map(w => `<div><b>Heads up${w.sameStat?` — same stat (${esc(w.stat)})`:w.stat?` on ${esc(w.stat)}`:""}:</b> ${esc(w.text)}<div class="src">${esc(w.player)}${w.team?` · ${esc(w.team)}`:""} · from your ${esc(w.from)} note, ${esc((w.at||"").slice(0,10))}</div></div>`).join("")}</div>` : "";
@@ -247,6 +248,7 @@ function ticketHTML(b){
     ${isMulti(b) && b.legs.some(l=>l.pick||l.player) ? `<ol class="t-legs">${b.legs.map(l=>`<li>${b.market==="Parlay"?`<span class="lt">${esc(l.type)}</span>`:"<span></span>"}<span class="lp">${esc(legLabel(l))}${l.team?` <small>· ${esc(l.team)}</small>`:""}</span><span class="lo">${l.odds?fmtOdds(l.odds):""}</span><span class="lr ${l.result}">${{won:"Hit",lost:"Miss",push:"Push",pending:"—"}[l.result]||"—"}</span></li>`).join("")}</ol>` : ""}
     <div class="t-meta"><span>Cost <b>${money(b.stake)}</b></span>${pay!==null?`<span>Pays <b>${money(pay)}</b></span>`:""}${b.result!=="pending"?`<span>P/L <b class="${p>0?"pos":p<0?"neg":""}">${b.result==="won"&&pay===null?"add payout":signMoney(p)}</b></span>`:""}${o!==null?`<span>Needs <b>${pct(imp(o))}</b></span>`:""}${b.conf?`<span>Conf <b>${b.conf}/5</b></span>`:""}${c!==null?`<span>CLV <b class="${c>0?"pos":c<0?"neg":""}">${c>0?"+":""}${(c*100).toFixed(1)}</b> (close ${fmtOdds(b.close)})</span>`:""}</div>
     ${warnHTML(warns)}
+    ${liveHTML(b)}
     ${b.result==="cashed" ? (() => { const r = rideReturn(b);
       return `<div class="cashnote">Sold for <b>${money(Number(b.cashout)||0)}</b>${pay!==null?` of a possible ${money(pay)} payout`:""}. ${r===null ? "Log how it finished to see if selling was right." : cashDiff(b)>=0 ? `Letting it ride would have returned ${money(r)}, so cashing out <b>saved ${money(cashDiff(b))}</b>.` : `It would have paid ${money(r)}, so cashing out <b>left ${money(-cashDiff(b))} on the table</b>.`}</div>`; })() : ""}
     ${b.reason?`<div class="t-text"><span class="label">Why I took it</span>${esc(b.reason)}</div>`:""}
@@ -297,8 +299,8 @@ function renderLegs(){
     return `<div class="leg" data-i="${i}">
     <span class="n">${i+1}</span>
     ${typed?`<select class="ty" id="leg-type-${i}" aria-label="Pick ${i+1} type">${LEG_TYPES.map(t=>`<option ${t===l.type?"selected":""}>${t}</option>`).join("")}</select>`:""}
-    ${prop?`<input class="pl" id="leg-player-${i}" value="${esc(l.player)}" aria-label="Pick ${i+1} player" placeholder="Player">
-    <input class="tm" id="leg-team-${i}" value="${esc(l.team)}" aria-label="Pick ${i+1} team" placeholder="Team (type to search)">`:""}
+    ${prop?`<input class="tm" id="leg-team-${i}" value="${esc(l.team)}" aria-label="Pick ${i+1} team" placeholder="Team (type to search)">
+    <input class="pl" id="leg-player-${i}" value="${esc(l.player)}" aria-label="Pick ${i+1} player" placeholder="${l.teamId?"Player (type to search roster)":"Player"}">`:""}
     <input class="pk" id="leg-pick-${i}" value="${esc(l.pick)}" aria-label="Pick ${i+1}" placeholder="${esc(placeholderFor(legTypeOf(l)))}">
     ${multi?`<input class="od num" id="leg-odds-${i}" inputmode="numeric" value="${l.odds?fmtOdds(l.odds):""}" aria-label="Pick ${i+1} odds" placeholder="odds">
     <select class="rs" id="leg-res-${i}" aria-label="Pick ${i+1} result">${[["pending","Live"],["won","Hit"],["lost","Miss"],["push","Push"]].map(([v,t])=>`<option value="${v}" ${v===l.result?"selected":""}>${t}</option>`).join("")}</select>
@@ -310,19 +312,31 @@ function renderLegs(){
   $("#oddsLabel").innerHTML = multi ? "Total odds <i>(optional)</i>" : "Odds <i>(optional)</i>";
 }
 function updateWarn(i){ const el = document.getElementById("leg-warn-"+i); if(el) el.innerHTML = warnHTML(warningsFor(state.legs[i], state.editing)); }
-function showSugg(i, kind){
+let suggSeq = 0;
+async function showSugg(i, kind){
   const box = document.getElementById("leg-sugg-"+i); if(!box) return;
-  const l = state.legs[i], q = (kind==="team" ? l.team : l.player).trim().toLowerCase();
+  const l = state.legs[i], q = (kind==="team" ? l.team : l.player).trim().toLowerCase(), seq = ++suggSeq;
+  const league = ESPN.enabled() ? ESPN.leagueFor($("#f-sport").value) : null;
   let items = [];
   if(kind==="team" && q.length>=2){
-    items = teamPool($("#f-sport").value).filter(t => t.toLowerCase().includes(q)).slice(0,8).map(t => ({label:esc(t), team:t}));
+    let espnTeams = null;
+    if(league){ try { espnTeams = await ESPN.teams(league); } catch {} }
+    if(espnTeams?.length) items = espnTeams.filter(t => [t.name,t.short,t.abbr,t.location].some(x => x && x.toLowerCase().includes(q))).slice(0,8).map(t => ({label:esc(t.name), team:t.name, teamId:t.id}));
+    else items = teamPool($("#f-sport").value).filter(t => t.toLowerCase().includes(q)).slice(0,8).map(t => ({label:esc(t), team:t}));
   }
-  if(kind==="player" && q.length>=2){
-    const seen = new Map();
-    for(const b of state.bets) for(const x of b.legs) if(x.player && x.player.toLowerCase().includes(q)){ const k = norm(x.player)+"|"+norm(x.team); if(!seen.has(k)) seen.set(k, x); }
-    for(const w of allWatch()) if(w.player.toLowerCase().includes(q)){ const k = norm(w.player)+"|"+norm(w.team); if(!seen.has(k)) seen.set(k, {player:w.player, team:w.team}); }
-    items = [...seen.values()].slice(0,6).map(x => ({label:`${esc(x.player)}${x.team?` <small>· ${esc(x.team)}</small>`:""}`, player:x.player, team:x.team}));
+  if(kind==="player" && q.length>=1){
+    if(league && l.teamId){
+      try { const r = await ESPN.roster(league, l.teamId);
+        items = r.filter(p => p.name.toLowerCase().includes(q)).slice(0,8).map(p => ({label:`${esc(p.name)} <small>${esc([p.pos, p.jersey?"#"+p.jersey:""].filter(Boolean).join(" "))}</small>`, player:p.name, espnId:p.id, team:l.team, teamId:l.teamId})); } catch {}
+    }
+    if(!items.length && q.length>=2){
+      const seen = new Map();
+      for(const b of state.bets) for(const x of b.legs) if(x.player && x.player.toLowerCase().includes(q)){ const k = norm(x.player)+"|"+norm(x.team); if(!seen.has(k)) seen.set(k, x); }
+      for(const w of allWatch()) if(w.player.toLowerCase().includes(q)){ const k = norm(w.player)+"|"+norm(w.team); if(!seen.has(k)) seen.set(k, {player:w.player, team:w.team, espnId:w.espnId, teamId:w.teamId}); }
+      items = [...seen.values()].slice(0,6).map(x => ({label:`${esc(x.player)}${x.team?` <small>· ${esc(x.team)}</small>`:""}`, player:x.player, team:x.team, espnId:x.espnId||"", teamId:x.teamId||""}));
+    }
   }
+  if(seq !== suggSeq) return; // a newer keystroke already updated the list
   if(items.length===1 && kind==="team" && items[0].team.toLowerCase()===q) items = [];
   box.hidden = !items.length;
   box.innerHTML = items.map((it,k) => `<button type="button" data-sg="${i}" data-k="${k}">${it.label}</button>`).join("");
@@ -350,8 +364,8 @@ function setMarket(m){
 $("#legs").addEventListener("input", e => {
   const row = e.target.closest(".leg"); if(!row) return; const i = Number(row.dataset.i), l = state.legs[i], c = e.target.classList;
   if(c.contains("pk")){ l.pick = e.target.value; updateWarn(i); }
-  if(c.contains("pl")){ l.player = e.target.value; updateWarn(i); showSugg(i,"player"); }
-  if(c.contains("tm")){ l.team = e.target.value; updateWarn(i); showSugg(i,"team"); }
+  if(c.contains("pl")){ l.player = e.target.value; l.espnId = ""; updateWarn(i); showSugg(i,"player"); }
+  if(c.contains("tm")){ l.team = e.target.value; l.teamId = ""; updateWarn(i); showSugg(i,"team"); }
   if(c.contains("od")){ l.odds = parseOdds(e.target.value); autoOdds(); syncForm(); }
 });
 $("#legs").addEventListener("focusout", e => { const row = e.target.closest(".leg"); if(row) hideSugg(Number(row.dataset.i)); });
@@ -364,8 +378,10 @@ $("#legs").addEventListener("change", e => {
 $("#legs").addEventListener("click", e => {
   const sg = e.target.closest("[data-sg]");
   if(sg){ const i = Number(sg.dataset.sg), it = sg.parentElement._items[Number(sg.dataset.k)], l = state.legs[i];
-    if(it.player !== undefined){ l.player = it.player; if(it.team) l.team = it.team; }
-    else l.team = it.team;
+    if(it.player !== undefined){ l.player = it.player; l.espnId = it.espnId || ""; if(it.team){ l.team = it.team; l.teamId = it.teamId || l.teamId; } }
+    else { l.team = it.team; l.teamId = it.teamId || "";
+      const league = ESPN.leagueFor($("#f-sport").value);
+      if(l.teamId && league && ESPN.enabled()){ ESPN.roster(league, l.teamId).catch(()=>{}); const pl = document.getElementById("leg-player-"+i); if(pl) pl.placeholder = "Player (type to search roster)"; } }
     const pl = document.getElementById("leg-player-"+i), tm = document.getElementById("leg-team-"+i);
     if(pl) pl.value = l.player; if(tm) tm.value = l.team;
     sg.parentElement.hidden = true; updateWarn(i);
@@ -380,7 +396,7 @@ $("#addLeg").addEventListener("click", () => {
   const last = state.legs[state.legs.length-1];
   if(state.legs.length===1) state.legs[0].odds = state.legs[0].odds || parseOdds($("#f-odds").value);
   const nl = newLeg(state.market==="Parlay" ? (last?.type || "Spread") : state.market);
-  if(legTypeOf(nl)==="Player prop" && last){ nl.team = last.team; }
+  if(legTypeOf(nl)==="Player prop" && last){ nl.team = last.team; nl.teamId = last.teamId || ""; }
   state.legs.push(nl);
   if(state.legs.length===2){ state.oddsTouched = false; $("#f-odds").value = ""; }
   renderLegs(); autoOdds(); syncForm();
@@ -426,7 +442,8 @@ $("#slip").addEventListener("submit", async e => {
   const oddsRaw = $("#f-odds").value.trim(), payRaw = $("#f-payout").value.trim(), closeRaw = $("#f-close").value.trim();
   const odds = oddsRaw ? parseOdds(oddsRaw) : null, payout = payRaw ? Number(payRaw) : null, close = closeRaw ? parseOdds(closeRaw) : null;
   const legs = state.legs.filter(l => l.pick.trim() || l.player.trim()).map(l => { const type = legTypeOf(l);
-    return { type, player: type==="Player prop" ? l.player.trim() : "", team: type==="Player prop" ? l.team.trim() : "", pick: l.pick.trim(), odds: l.odds || null, result: l.result }; });
+    const prop = type==="Player prop";
+    return { type, player: prop ? l.player.trim() : "", team: prop ? l.team.trim() : "", teamId: prop ? (l.teamId||"") : "", espnId: prop ? (l.espnId||"") : "", pick: l.pick.trim(), odds: l.odds || null, result: l.result }; });
   const result = $("#f-result").value, cashout = result==="cashed" ? Number($("#f-cash").value) : null;
   const bad = !legs.length ? "Add at least one pick." : (state.market==="Parlay" && legs.length<2) ? "A parlay needs at least 2 picks. For one pick, use its own section."
     : !(stake>0) ? "Enter what it cost you." : (oddsRaw && !odds) ? "Odds need to be American format, like -110 or +150, or leave them blank."
@@ -439,7 +456,7 @@ $("#slip").addEventListener("submit", async e => {
   const draft = { market: state.market, legs, legCount: (prev?.legCount && legs.length===1) ? prev.legCount : null };
   const bet = { kind:"bet", date: $("#f-date").value || today(), sport: $("#f-sport").value.trim(), ...draft,
     pick: titleOf(draft), odds, payout, stake, conf: state.conf, reason: $("#f-reason").value.trim(), result, cashout, close, notes: $("#f-notes").value.trim(),
-    log: prev?.log || [], createdAt: prev?.createdAt || new Date().toISOString(), example: prev?.example || false, analysis: prev?.analysis || null };
+    log: prev?.log || [], espn: prev?.espn || null, createdAt: prev?.createdAt || new Date().toISOString(), example: prev?.example || false, analysis: prev?.analysis || null };
   const id = prev?.id || ("b" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
   try { await put(id, bet); resetForm(); } catch(x){ err.textContent = "Couldn't save that bet. " + (x?.message||"Try again."); err.hidden = false; }
 });
@@ -463,7 +480,7 @@ function localSave(){ try { localStorage.setItem(LS, JSON.stringify({bets:state.
 async function put(id, data){
   if(coll) return coll.doc(id).set(data);
   const i = state.bets.findIndex(b=>b.id===id); const rec = normalize({...data, id});
-  if(i>=0) state.bets[i]=rec; else state.bets.push(rec); localSave(); renderAll();
+  if(i>=0) state.bets[i]=rec; else state.bets.push(rec); localSave(); renderAll(); kickLive();
 }
 async function patch(id, data){
   if(coll) return coll.doc(id).update(data);
@@ -534,12 +551,15 @@ $("#tickets").addEventListener("click", async e => {
     const fail = !d.text.trim() ? "Write the note first." : (d.remind && !d.player.trim()) ? "Add the player this warning is about." : "";
     if(fail){ er.textContent = fail; er.hidden = false; return; }
     const note = { when: d.when, text: d.text.trim(), at: new Date().toISOString() };
-    if(d.remind) note.remind = { player: d.player.trim(), team: d.team.trim(), stat: d.stat.trim() };
+    if(d.remind){ const leg = b.legs.find(l => norm(l.player) === norm(d.player));
+      note.remind = { player: d.player.trim(), team: d.team.trim(), stat: d.stat.trim(), espnId: leg?.espnId || "", teamId: leg?.teamId || "" }; }
     btn.disabled = true;
     try { await patch(id, { log: [...b.log, note] }); state.noteOpen = null; state.noteDraft = null; renderAll(); }
     catch(x){ btn.disabled = false; er.textContent = "Couldn't save the note. Try again."; er.hidden = false; }
     return; }
   if(act==="del"){ if(delArm===id){ delArm=null; await remove(id).catch(()=>{}); } else { delArm=id; renderTickets(); setTimeout(()=>{ if(delArm===id){ delArm=null; renderTickets(); } },3500); } return; }
+  if(act==="applyLive"){ applyLive(b); return; }
+  if(act==="refreshLive"){ btn.disabled = true; await refreshLive(true); return; }
   if(act==="ask") analyzeBet(b);
 });
 
@@ -548,7 +568,7 @@ const COACH = `You're a sharp, honest sports betting coach talking to a newer be
 Core rules:
 - Separate PROCESS from RESULT. A bet can be good and lose, or bad and win. Say which this was.
 - Use the price math when a price is known: implied probability, the vig, break-even win rate, and closing line value when a closing price is given (if his odds imply a lower probability than the closing odds, he beat the close). If no odds or payout were logged, say the math can't be checked and ask him to log the payout next time.
-- Only use game facts the bettor wrote (reasoning, what happened, and his time-stamped notes from before, during and after the bet). Never invent scores, stats, injuries or news. If something important is missing, say what he should record next time.
+- Only use game facts the bettor wrote (reasoning, what happened, and his time-stamped notes from before, during and after the bet) and the ESPN box score line when one is attached; that box score is official and outranks his memory. Never invent scores, stats, injuries or news. If something important is missing, say what he should record next time.
 - Judge his stated reasoning: is it a real edge (information or a number the market hasn't caught up to, shopping for a better line, a specific matchup the line underrates) or a narrative, recency bias, fandom, or gut feel?
 - Use his saved watch-outs: if a pick goes against a warning he wrote himself, call it out.
 - For cash-outs, a sale can be right even if the bet would have hit, and wrong even if it would have missed; judge the price he took against the odds of the remaining legs at the time he sold.
@@ -558,7 +578,7 @@ function betLine(b){
   const picks = isMulti(b) ? `${titleOf(b)}: ` + b.legs.map((l,i)=>`leg ${i+1} [${l.type}] ${lg(l)}${l.odds?` (${fmtOdds(l.odds)})`:""} → ${l.result==="won"?"hit":l.result==="lost"?"missed":l.result}`).join("; ") : lg(b.legs[0]||{pick:b.pick});
   const o = effOdds(b), pay = payoutOf(b);
   const cash = b.result==="cashed" ? ` | CASHED OUT for ${money(Number(b.cashout)||0)}${pay!==null?` (full payout would be ${money(pay)})`:""}${rideReturn(b)===null?", final outcome not logged":`, holding would have returned ${money(rideReturn(b))}`}` : "";
-  const notes = b.log.length ? ` | notes: ` + b.log.map(n=>`[${WHEN[n.when]||n.when}] ${n.text}`).join(" / ") : "";
+  const notes = (b.log.length ? ` | notes: ` + b.log.map(n=>`[${WHEN[n.when]||n.when}] ${n.text}`).join(" / ") : "") + (b.espn ? ` | ESPN box score: ${b.espn}` : "");
   return `${b.date} | ${b.sport} | section: ${b.market}${isMulti(b)&&b.market!=="Parlay"?" (same-type parlay)":""} | ${picks} | ${o!==null?`odds ${fmtOdds(o)}`:"odds not logged"}${pay!==null?` | payout ${money(pay)}`:""} | cost ${money(b.stake)} | conf ${b.conf||"?"}/5 | status ${b.result==="pending"?"in progress":b.result}${cash}${b.close?` | close ${fmtOdds(b.close)}`:""}${b.reason?` | why: ${b.reason}`:""}${b.notes?` | what happened: ${b.notes}`:""}${notes}`;
 }
 function summaryText(){ const s = compute(state.bets);
@@ -748,6 +768,83 @@ $("#importFile").addEventListener("change", async e => {
   e.target.value = "";
 });
 
+/* ---------- live tracking (ESPN) ----------
+   For in-progress bets from the last couple of days, pull the score and box score,
+   show progress on each pick, and suggest a result once it's decided. */
+state.espn = {};          // bet id -> latest tracking result
+let liveTimer = null, liveBusy = false;
+const STATUS_TEXT = { hit:"Hit", miss:"Miss", push:"Push", void:"Void", live:"Live", pre:"Not started", unknown:"—" };
+function trackable(b){
+  if(b.result !== "pending" || !ESPN.enabled() || !ESPN.leagueFor(b.sport)) return false;
+  const days = (new Date(today()+"T12:00:00") - new Date(b.date+"T12:00:00")) / 864e5;
+  return days <= 2 && days >= -1;
+}
+function liveHTML(b){
+  const t = state.espn[b.id];
+  if(!t) return trackable(b) ? `<div class="live"><span class="live-src">Checking ESPN…</span></div>` : "";
+  if(t.err) return `<div class="live"><span class="live-src">Live tracking unavailable: ${esc(t.err)}</span></div>`;
+  const games = t.games.map(g => `<span class="game ${g.state}"><b>${esc(g.away?.abbr||g.away?.short)} ${g.away?.score ?? ""} · ${esc(g.home?.abbr||g.home?.short)} ${g.home?.score ?? ""}</b> ${esc(g.state==="pre" ? new Date(g.date).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}) : g.detail)}</span>`).join("");
+  const legs = t.legs.map(l => {
+    const pct = l.value != null && l.line != null && l.dir === "over" ? Math.min(1, l.value / (Math.floor(l.line) + 1)) : null;
+    const target = l.line != null && l.dir ? `${l.dir==="over"?"need":"under"} ${l.dir==="over" ? Math.floor(l.line)+1 : l.line}` : "";
+    return `<div class="live-leg ${l.status}${l.locked?" locked":""}">
+      <span class="ll">${esc(l.label)}</span>
+      <span class="lst">${STATUS_TEXT[l.status]||""}${l.locked?" ✓":""}</span>
+      <span class="lv">${esc(l.text||"")}${target && l.value != null ? ` <small>(${esc(target)})</small>` : ""}</span>
+      ${pct !== null ? `<span class="bar" aria-hidden="true"><i style="width:${(pct*100).toFixed(0)}%"></i></span>` : ""}
+    </div>`; }).join("");
+  const sug = t.suggestion ? `<div class="suggest"><span>${t.games.every(g=>g.state==="post") ? "Final." : "Already decided."} This bet ${t.suggestion.result==="won"?"<b class=\"pos\">won</b>":t.suggestion.result==="lost"?"<b class=\"neg\">lost</b>":"<b>pushed</b>"}.</span><button class="btn small primary" type="button" data-act="applyLive">Mark as ${t.suggestion.result==="won"?"won":t.suggestion.result==="lost"?"lost":"push"}</button></div>` : "";
+  return `<div class="live">${games ? `<div class="games">${games}</div>` : ""}${legs}${sug}
+    <div class="live-src">ESPN · updated ${new Date(t.at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})} <button class="linkbtn" type="button" data-act="refreshLive">Refresh</button></div></div>`;
+}
+async function refreshLive(force){
+  clearTimeout(liveTimer);
+  if(liveBusy || !ESPN.enabled()) return;
+  liveBusy = true;
+  const bets = state.bets.filter(trackable);
+  for(const b of bets){
+    try { const t = await ESPN.trackBet(b); if(t) state.espn[b.id] = t; else delete state.espn[b.id]; }
+    catch(e){ state.espn[b.id] = { err: e?.message || "couldn't reach ESPN", at: Date.now() }; }
+  }
+  for(const id of Object.keys(state.espn)) if(!bets.some(b => b.id === id)) delete state.espn[id];
+  liveBusy = false;
+  const typing = document.activeElement && document.getElementById("tickets").contains(document.activeElement) && /TEXTAREA|INPUT/.test(document.activeElement.tagName);
+  if(!typing) renderTickets();
+  // Poll every minute while a game is live, every 10 minutes before tip-off, and not at all once everything's final.
+  const ts = Object.values(state.espn);
+  const live = ts.some(t => t.games?.some(g => g.state === "in")), pre = ts.some(t => t.games?.some(g => g.state === "pre") || t.legs?.some(l => l.status === "unknown"));
+  const wait = live ? 60e3 : pre ? 10*60e3 : 0;
+  if(wait && document.visibilityState === "visible") liveTimer = setTimeout(refreshLive, wait);
+}
+async function applyLive(b){
+  const t = state.espn[b.id]; if(!t?.suggestion) return;
+  const legs = b.legs.map((l, i) => ({ ...l, result: t.suggestion.legResults[i] ?? l.result }));
+  await patch(b.id, { result: t.suggestion.result, legs, espn: t.suggestion.summary }).catch(()=>{});
+  delete state.espn[b.id]; renderAll();
+}
+document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") refreshLive(); });
+let liveKick = null;
+const kickLive = () => { clearTimeout(liveKick); liveKick = setTimeout(refreshLive, 1500); };
+
+/* ESPN settings */
+const ESPN_KEY = "betcoach.espn";
+let espnSettings = { enabled: true, proxy: "" };
+try { espnSettings = { ...espnSettings, ...JSON.parse(localStorage.getItem(ESPN_KEY) || "{}") }; } catch {}
+ESPN.configure(espnSettings);
+$("#e-on").checked = espnSettings.enabled; $("#e-proxy").value = espnSettings.proxy;
+$("#e-save").addEventListener("click", () => {
+  espnSettings = { enabled: $("#e-on").checked, proxy: $("#e-proxy").value.trim() };
+  try { localStorage.setItem(ESPN_KEY, JSON.stringify(espnSettings)); } catch {}
+  ESPN.configure(espnSettings); state.espn = {}; renderTickets(); refreshLive(true);
+  $("#e-msg").textContent = espnSettings.enabled ? "Saved." : "Saved. Live data is off.";
+});
+$("#e-test").addEventListener("click", async () => {
+  const m = $("#e-msg"); m.textContent = "Testing…";
+  ESPN.configure({ proxy: $("#e-proxy").value.trim() });
+  try { m.textContent = await ESPN.test(); } catch(e){ m.textContent = e?.message || "Couldn't reach ESPN."; }
+  ESPN.configure(espnSettings);
+});
+
 /* ---------- install button (Chrome/Edge/Android show it; iPhone uses Share > Add to Home Screen) ---------- */
 let installEvt = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; $("#installBtn").hidden = false; });
@@ -760,5 +857,6 @@ $("#s-key").value = settings.apiKey; $("#s-model").value = settings.model;
 const baseRender = renderAll;
 renderAll = function(){ baseRender(); $("#status").textContent = `${state.bets.length} bet${state.bets.length===1?"":"s"} · saved on this device`; };
 localLoad(); resetForm(); renderAll(); syncForm();
+refreshLive();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();

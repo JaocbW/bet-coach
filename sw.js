@@ -1,8 +1,8 @@
 /* Service worker: makes the app work offline.
    IMPORTANT: when you change any file, bump VERSION (v1 -> v2) so phones pick up the new version. */
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = "bet-coach-" + VERSION;
-const APP_FILES = ["./", "./index.html", "./styles.css", "./teams.js", "./app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-180.png"];
+const APP_FILES = ["./", "./index.html", "./styles.css", "./teams.js", "./espn.js", "./app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./icon-180.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(APP_FILES)).then(() => self.skipWaiting()));

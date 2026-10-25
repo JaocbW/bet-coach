@@ -84,6 +84,11 @@
           <span class="hint">With a key, the coach answers right inside the app, billed to your API account at a few cents per read. Without one, the coach hands you a prompt to paste into Claude. The key stays on this device.</span></div>
         <div class="field"><label for="s-model">Model <i>(optional)</i></label><input id="s-model" spellcheck="false" placeholder="claude-sonnet-5-5"></div>
         <div class="actions" style="align-items:center"><button class="btn small" id="s-save" type="button">Save settings</button><span class="hint" id="s-msg"></span></div>
+        <div class="field"><span class="label">Live data (ESPN)</span>
+          <label class="check"><input type="checkbox" id="e-on" checked> Live scores, rosters and auto-grading</label>
+          <label for="e-proxy" class="hint">Proxy URL <i>(only if the test fails)</i></label>
+          <input id="e-proxy" spellcheck="false" placeholder="https://bet-coach-proxy.yourname.workers.dev">
+          <div class="actions" style="align-items:center"><button class="btn small" id="e-test" type="button">Test ESPN connection</button><button class="btn small" id="e-save" type="button">Save</button><span class="hint" id="e-msg"></span></div></div>
         <div class="field"><span class="label">Backup</span>
           <div class="actions"><button class="btn small" id="exportBtn" type="button">Export backup</button><label class="btn small" for="importFile">Import backup</label><input id="importFile" type="file" accept="application/json,.json" hidden></div>
           <span class="hint" id="io-msg">Your bets live on this device only. Export a backup now and then. Import adds bets from a backup, including one from the Claude version.</span></div>
@@ -117,6 +122,7 @@
 </div>
 
 <script src="teams.js"></script>
+<script src="espn.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

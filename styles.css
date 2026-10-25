@@ -97,7 +97,7 @@ textarea{resize:vertical;min-height:62px}
 .leg .od{flex:0 1 84px} .leg .rs{flex:0 1 96px}
 .leg .x{flex:0 0 30px;border:0;background:transparent;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:4px;border-radius:4px}
 .leg .x:hover{color:var(--loss)}
-.leg .ty + .pl{margin-left:24px}
+.leg .ty + .tm{margin-left:24px}
 .leg .full{flex:1 1 100%}
 .sugg{display:flex;flex-wrap:wrap;gap:4px}
 .sugg button{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:3px 8px;font-size:12px;cursor:pointer}
@@ -189,7 +189,7 @@ td.num{font-family:var(--mono)}
 .empty{padding:28px 18px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:8px;display:grid;gap:10px;justify-items:center}
 .empty h3{font-size:22px;color:var(--ink);text-transform:uppercase}
 .foot{font-size:12px;color:var(--muted);max-width:80ch}
-@media (max-width:480px){.row3{grid-template-columns:1fr 1fr}.board-top h1{font-size:34px}.stat .v{font-size:24px}.leg .ty + .pl{margin-left:0}}
+@media (max-width:480px){.row3{grid-template-columns:1fr 1fr}.board-top h1{font-size:34px}.stat .v{font-size:24px}.leg .ty + .tm{margin-left:0}}
 @media (prefers-reduced-motion:no-preference){.ticket{transition:border-color .15s}.ticket:hover{border-color:var(--muted)}}
 
 /* Copy-to-Claude coach panel and install button (app only) */
@@ -199,3 +199,23 @@ td.num{font-family:var(--mono)}
 .manual textarea{background:var(--surface);min-height:90px}
 .board-top .right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 label.btn{display:inline-block}
+
+/* Live ESPN tracker on in-progress tickets */
+.live{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--sunk)}
+.live .games{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.live .game b{font-family:var(--mono);color:var(--ink);font-weight:600}
+.live .game.in b::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--loss);margin-right:6px;vertical-align:1px}
+.live-leg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:14px;align-items:center}
+.live-leg .ll{font-weight:600;overflow-wrap:anywhere;min-width:0}
+.live-leg .lst{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:3px;color:var(--muted)}
+.live-leg .lv{grid-column:1/-1;font-family:var(--mono);font-size:13px;color:var(--muted)}
+.live-leg .lv small{font-family:var(--body)}
+.live-leg .bar{grid-column:1/-1;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.live-leg .bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.live-leg.hit .lst{background:var(--win-soft);color:var(--win)} .live-leg.hit .bar i{background:var(--win)}
+.live-leg.miss .lst{background:var(--loss-soft);color:var(--loss)}
+.live-leg.push .lst,.live-leg.void .lst{background:var(--push-soft);color:var(--push)}
+.live-leg.live .lst{background:var(--accent-soft);color:var(--accent)}
+.suggest{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:14px;padding-top:6px;border-top:1px solid var(--line)}
+.live-src{font-size:11px;color:var(--muted)}
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer;text-decoration:underline}
