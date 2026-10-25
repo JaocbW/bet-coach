@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bet Coach</title>
+<meta name="description" content="Track your sports bets and learn why they hit or miss.">
+<meta name="theme-color" content="#141B26">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="board">
+    <div class="board-top">
+      <h1>Bet <span>Coach</span></h1>
+      <div class="right"><div class="status" id="status">Loading your book…</div><button class="btn small primary" id="installBtn" type="button" hidden>Install app</button></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="banner" id="banner" hidden></div>
+  </header>
+
+  <div class="desk">
+    <div class="col">
+      <section class="panel" aria-labelledby="slip-h">
+        <div class="panel-head"><h2 id="slip-h">Log a bet</h2><button class="btn small ghost" id="cancelEdit" type="button" hidden>Cancel edit</button></div>
+        <form id="slip" autocomplete="off">
+          <div class="row">
+            <div class="field"><label for="f-date">Date</label><input id="f-date" type="date" required></div>
+            <div class="field"><label for="f-sport">Sport</label><input id="f-sport" list="sports" placeholder="NCAAB" required>
+              <datalist id="sports"><option>NFL</option><option>NCAAF</option><option>NBA</option><option>NCAAB</option><option>MLB</option><option>NHL</option><option>UFC</option><option>Soccer</option><option>Tennis</option><option>Golf</option></datalist></div>
+          </div>
+          <div class="field"><span class="label" id="mk-l">Section</span>
+            <div class="seg tabs" id="f-market" role="group" aria-labelledby="mk-l"></div>
+            <span class="hint" id="mk-hint"></span></div>
+          <div class="field"><span class="label" id="legs-l">Picks</span>
+            <div class="legs" id="legs" aria-labelledby="legs-l"></div>
+            <div><button class="btn small" type="button" id="addLeg">+ Add pick</button></div></div>
+          <div class="row3">
+            <div class="field"><label for="f-stake">Cost $</label><input id="f-stake" class="num" type="number" min="0" step="0.01" placeholder="25" required></div>
+            <div class="field"><label for="f-payout">Payout $ <i>(if it hits)</i></label><input id="f-payout" class="num" type="number" min="0" step="0.01" placeholder="optional"></div>
+            <div class="field"><label for="f-odds" id="oddsLabel">Odds <i>(optional)</i></label><input id="f-odds" class="num" inputmode="numeric" placeholder="optional"></div>
+          </div>
+          <div class="calc" id="calc"></div>
+          <div class="field"><span class="label" id="cf-l">How sure were you?</span>
+            <div class="conf" id="f-conf" role="group" aria-labelledby="cf-l"></div></div>
+          <div class="field"><label for="f-reason">Why you took it</label><textarea id="f-reason" placeholder="What did you see that the line didn't? Be honest — 'gut feel' counts."></textarea>
+            <span class="hint">The coach grades your reasoning, not just the result.</span></div>
+          <div class="row">
+            <div class="field"><label for="f-result">Status</label><select id="f-result"><option value="pending">In progress</option><option value="won">Won</option><option value="lost">Lost</option><option value="push">Push</option><option value="cashed">Cashed out</option></select></div>
+            <div class="field"><label for="f-close">Closing odds <i>(optional)</i></label><input id="f-close" class="num" inputmode="numeric" placeholder="-125"></div>
+          </div>
+          <div class="row" id="cashRow" hidden>
+            <div class="field"><label for="f-cash">Cashed out for $</label><input id="f-cash" class="num" type="number" min="0" step="0.01" placeholder="30"></div>
+            <div class="field" id="afterField"><label for="f-after">If you'd let it ride</label><select id="f-after"><option value="pending">Don't know yet</option><option value="won">It would've won</option><option value="lost">It would've lost</option><option value="push">It would've pushed</option></select></div>
+            <span class="hint" style="grid-column:1/-1">For multi-pick slips, set each pick's Hit/Miss above so the coach can tell if selling was smart.</span>
+          </div>
+          <div class="field"><label for="f-notes">What happened <i>(optional)</i></label><textarea id="f-notes" placeholder="Final score, key plays, injuries, how close it was. You can also add notes to the bet later."></textarea></div>
+          <div class="err" id="formErr" hidden></div>
+          <div class="actions"><button class="btn primary" type="submit" id="saveBtn">Add to my book</button></div>
+        </form>
+      </section>
+
+      <section class="panel" aria-labelledby="watch-h">
+        <h2 id="watch-h">Watch-outs</h2>
+        <div class="watch" id="watch"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="flags-h">
+        <h2 id="flags-h">Leaks &amp; habits</h2>
+        <div class="flags" id="flags"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="set-h">
+        <h2 id="set-h">Settings</h2>
+        <div class="field"><label for="s-key">Anthropic API key <i>(optional)</i></label>
+          <input id="s-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+          <span class="hint">With a key, the coach answers right inside the app, billed to your API account at a few cents per read. Without one, the coach hands you a prompt to paste into Claude. The key stays on this device.</span></div>
+        <div class="field"><label for="s-model">Model <i>(optional)</i></label><input id="s-model" spellcheck="false" placeholder="claude-sonnet-5-5"></div>
+        <div class="actions" style="align-items:center"><button class="btn small" id="s-save" type="button">Save settings</button><span class="hint" id="s-msg"></span></div>
+        <div class="field"><span class="label">Backup</span>
+          <div class="actions"><button class="btn small" id="exportBtn" type="button">Export backup</button><label class="btn small" for="importFile">Import backup</label><input id="importFile" type="file" accept="application/json,.json" hidden></div>
+          <span class="hint" id="io-msg">Your bets live on this device only. Export a backup now and then. Import adds bets from a backup, including one from the Claude version.</span></div>
+      </section>
+
+      <section class="panel" aria-labelledby="rev-h">
+        <div class="panel-head"><h2 id="rev-h">Coach review</h2><button class="btn primary small" id="reviewBtn" type="button">Review my betting</button></div>
+        <div id="reviewOut"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-labelledby="trend-h">
+        <div class="panel-head"><h2 id="trend-h">Bankroll line</h2><span class="label" id="unitLabel"></span></div>
+        <div class="chart" id="chart"></div>
+        <div class="tablewrap" id="breakdown"></div>
+        <div class="row" style="align-items:end">
+          <div class="field"><label for="f-unit">1 unit = $</label><input id="f-unit" class="num" type="number" min="1" step="1"></div>
+          <span class="hint">Pros bet 1–2% of bankroll per play, flat. Set your unit and the stats show units too.</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="hist-h">
+        <div class="panel-head"><h2 id="hist-h">My book</h2>
+          <div class="filters seg" id="filters"></div></div>
+        <div class="tickets" id="tickets"></div>
+      </section>
+      <p class="foot">At standard −110 juice you need to win 52.4% just to break even. Most bettors lose long-term; the goal here is to find out honestly whether you have an edge, and to stop the leaks if you don't.</p>
+    </div>
+  </div>
+</div>
+
+<script src="teams.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
